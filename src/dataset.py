@@ -1,13 +1,14 @@
 import datasets
 import torch
+from tokenizer.tokenizer import NanoTokenizer
 
 class NanoDataset(torch.utils.data.Dataset):
-    def __init__(self, path, tokenizer):
+    def __init__(self, path, tokenizer:NanoTokenizer):
         self.tokenizer = tokenizer
         self.dataset = self.load__data(path)
 
     def load__data(self, item):
-        dataset = datasets.load_dataset(path)
+        dataset = datasets.load_dataset("./pretrain_t2t_mini.jsonl")
         self.seq = self.map_text_arr(dataset[item]["text"])
 
     def map_text(self, text):
@@ -38,7 +39,7 @@ class NanoDataset(torch.utils.data.Dataset):
         return input_ids, target_ids
 
 if __name__ == "__main__":
-    from tokenizer.tokenizer import NanoTokenizer
+
     tokenizer = NanoTokenizer()
     dataset = NanoDataset("./data/sample.json", tokenizer)
     print("Dataset length:", len(dataset))

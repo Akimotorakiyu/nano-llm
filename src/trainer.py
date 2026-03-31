@@ -12,7 +12,7 @@ class Trainer:
         self.optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
         self.loss_fn = nn.CrossEntropyLoss()
 
-
+ 
     def train_step(self, inputs, targets):
         outputs = self.model(inputs)
 

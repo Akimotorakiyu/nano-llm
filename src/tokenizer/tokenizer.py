@@ -34,3 +34,6 @@ if __name__ == "__main__":
     print("Decoded Text:", decoded_text)
 
     print("Vocabulary Size:", tokenizer.vocab_size())
+
+    # 输出分词器的关键词
+    print("Tokenizer Keywords:", tokenizer.mini_mind_tokenizer.get_vocab().keys())
