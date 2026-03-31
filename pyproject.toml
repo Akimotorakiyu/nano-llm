@@ -1,0 +1,12 @@
+[project]
+name = "nano-llm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "datasets>=4.8.4",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+    "transformers>=5.4.0",
+]
