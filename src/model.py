@@ -1,7 +1,7 @@
 from torch import nn
 
 class NanoConfig:
-    def __init__(self, n_layers=12, embeding_dim=512, attention_dim=512, vocab_size=3000):
+    def __init__(self, n_layers=8, embeding_dim=512, attention_dim=768, vocab_size=6400):
         self.n__layers = n_layers
         self.embeding_dim = embeding_dim
         self.attention_dim = attention_dim
