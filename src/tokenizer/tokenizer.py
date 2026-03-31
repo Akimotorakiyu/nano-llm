@@ -28,7 +28,7 @@ if __name__ == "__main__":
     tokenizer = NanoTokenizer()
     text = "Hello, how are you?"
     token_ids = tokenizer.tokenizer(text)
-    print("Token IDs sssss:", token_ids)
+    print("Token IDs:", token_ids)
     
     decoded_text = tokenizer.decode(token_ids)
     print("Decoded Text:", decoded_text)
