@@ -2,18 +2,17 @@ from torch.utils.data import DataLoader
 from dataset import NanoDataset
 import torch
 
-
-
 class NanoDataLoader(DataLoader):
     def __init__(self, dataset, batch_size=256, shuffle=False):
-        super().__init__(dataset, batch_size=batch_size, shuffle=shuffle)
+        super().__init__(dataset, batch_size=batch_size, shuffle=shuffle,pin_memory=True)
 
-    def collate_fn(self, batch):
-        input_ids = [item[0] for item in batch]
-        target_ids = [item[1] for item in batch]
+if __name__ == "__main__":
+    from tokenizer.tokenizer import NanoTokenizer
+    tokenizer = NanoTokenizer()
+    dataset = NanoDataset("./data/pretrain_t2t_mini.jsonl", tokenizer, max_length=512)
+    dataloader = NanoDataLoader(dataset, batch_size=256, shuffle=True)
 
-        input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=0)
-        # 这里的 padding_value=-100 是为了在计算损失时忽略填充部分的影响，具体取决于你的损失函数如何处理标签
-        target_ids = torch.nn.utils.rnn.pad_sequence(target_ids, batch_first=True, padding_value=-100)
-
-        return input_ids, target_ids
+    for input_ids, target_ids in dataloader:
+        print("Input IDs shape:", input_ids.shape)
+        print("Target IDs shape:", target_ids.shape)
+        break
