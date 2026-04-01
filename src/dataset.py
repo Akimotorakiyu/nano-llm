@@ -1,49 +1,43 @@
-import json
 import torch
 from tokenizer.tokenizer import NanoTokenizer
+from torch.utils.data import Dataset
+from datasets import load_dataset
 
 
-class NanoDataset(torch.utils.data.Dataset):
-    def __init__(self, path, tokenizer: NanoTokenizer, max_lines=None):
+class NanoDataset(Dataset):
+    def __init__(self, data_path, tokenizer, max_length=512):
+        super().__init__()
         self.tokenizer = tokenizer
-        self.max_lines = max_lines
-        self.dataset = self.load__data(path)
-
-    def load__data(self, path):
-        seq = []
-        with open(path, "r", encoding="utf-8") as f:
-            for i, line in enumerate(f):
-                if self.max_lines and i >= self.max_lines:
-                    break
-                data = json.loads(line)
-                text = data["text"]
-                input_ids = self.map_text(text)
-                seq.append(input_ids)
-        self.seq = seq
-        return seq
-
-    def map_text(self, text):
-        str = (
-            self.tokenizer.mini_mind_tokenizer.eos_token
-            + text
-            + self.tokenizer.mini_mind_tokenizer.eos_token
-        )
-        input_ids = self.tokenizer.tokenizer(str)
-        return input_ids.squeeze(0)
+        self.max_length = max_length
+        self.samples = load_dataset("json", data_files=data_path, split="train")
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self.samples)
 
-    def __getitem__(self, idx):
-        item = self.seq[idx]
-
-        input_ids, target_ids = item[:-1], item[1:]
-
-        return input_ids, target_ids
+    def __getitem__(self, index):
+        sample = self.samples[index]
+        tokens = (
+            self.tokenizer(
+                str(sample["text"]),
+                add_special_tokens=False,
+                max_length=self.max_length - 2,
+                truncation=True,
+            )
+            .input_ids.squeeze(0)
+            .tolist()
+        )
+        tokens = [self.tokenizer.bos_token_id] + tokens + [self.tokenizer.eos_token_id]
+        input_ids = tokens + [self.tokenizer.pad_token_id] * (
+            self.max_length - len(tokens)
+        )
+        input_ids = torch.tensor(input_ids, dtype=torch.long)
+        labels = input_ids.clone()
+        labels[input_ids == self.tokenizer.pad_token_id] = -100
+        return input_ids, labels
 
 
 if __name__ == "__main__":
     tokenizer = NanoTokenizer()
-    dataset = NanoDataset("./data/pretrain_t2t_mini.jsonl", tokenizer, max_lines=10)
+    dataset = NanoDataset("./data/pretrain_t2t_mini.jsonl", tokenizer, max_length=512)
     print("Dataset length:", len(dataset))
     print("First item tokenized:", dataset[0])
