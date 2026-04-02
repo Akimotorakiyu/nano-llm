@@ -10,7 +10,7 @@ from dataloader import NanoDataLoader
 from src.model import NanoLLM
 
 
-class Trainer:
+class NanoTrainer:
     def __init__(self, model: NanoLLM, dataloader: NanoDataLoader):
         self.model = model
         self.dataloader = dataloader
