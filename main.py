@@ -17,7 +17,7 @@ def main():
 
     model = NanoLLM(config)
 
-    dataloader = NanoDataLoader(dataset, batch_size=8)
+    dataloader = NanoDataLoader(dataset)
     trainer = NanoTrainer(model, dataloader)
     trainer.train(epochs=10)
 

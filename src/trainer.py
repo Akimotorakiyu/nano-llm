@@ -17,6 +17,17 @@ class NanoTrainer:
         self.optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
         self.loss_fn = nn.CrossEntropyLoss()
 
+    def save_model(self, epoch, batch_idx):
+        checkpoint_dir = Path("checkpoints")
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+        print(f"Saving model checkpoint at epoch {epoch + 1}...")
+        torch.save(
+            self.model.state_dict(),
+            checkpoint_dir / f"nano_llm_epoch_{epoch + 1}_{batch_idx + 1}.pth",
+        )
+        torch.save(self.model.state_dict(), checkpoint_dir / f"nano_llm_epoch_last.pth")
+
     def train_step(self, inputs, targets):
         outputs = self.model(inputs)
 
@@ -40,9 +51,15 @@ class NanoTrainer:
                 inputs, targets = batch
                 loss = self.train_step(inputs, targets)
 
-                print(f"epoch {epoch + 1}/{epochs}, batch {batch_idx + 1}/{len(self.dataloader)}, Batch Loss: {loss:.4f}")
+                print(
+                    f"epoch {epoch + 1}/{epochs}, batch {batch_idx + 1}/{len(self.dataloader)}, Batch Loss: {loss:.4f}"
+                )
 
                 epoch_total_loss += loss
+
+                if (batch_idx + 1) % 10 == 0:
+                    print(f"saving model checkpoint...")
+                    self.save_model(epoch, batch_idx)
 
             avg_loss = epoch_total_loss / len(self.dataloader)
             print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
