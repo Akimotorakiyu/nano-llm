@@ -1,4 +1,5 @@
 from torch import nn
+import torch
 
 
 class NanoConfig:
@@ -28,6 +29,11 @@ class NanoAttention(nn.Module):
 
         # [N,D] @ [D,N] -> [N,N]
         attention_socres = Q @ K.transpose(-2, -1) / (self.attention_dim**0.5)
+
+        # 生成一个上三角矩阵，遮蔽未来信息
+        mask = torch.triu(torch.ones_like(attention_socres), diagonal=1).bool()
+        attention_socres = attention_socres.masked_fill(mask, float('-inf'))
+
 
         attention_qk = nn.functional.softmax(attention_socres, dim=-1)
 
