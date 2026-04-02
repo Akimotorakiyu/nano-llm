@@ -12,10 +12,14 @@ from src.model import NanoLLM
 
 class NanoTrainer:
     def __init__(self, model: NanoLLM, dataloader: NanoDataLoader):
-        self.model = model
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = model.to(self.device)
         self.dataloader = dataloader
         self.optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
-        self.loss_fn = nn.CrossEntropyLoss()
+        self.loss_fn = nn.CrossEntropyLoss().to(self.device)
+        print(f"Using device: {self.device}")
+        if torch.cuda.is_available():
+            print(f"GPU: {torch.cuda.get_device_name(0)}")
 
     def save_model(self, epoch, batch_idx):
         checkpoint_dir = Path("checkpoints")
@@ -29,6 +33,7 @@ class NanoTrainer:
         torch.save(self.model.state_dict(), checkpoint_dir / f"nano_llm_epoch_last.pth")
 
     def train_step(self, inputs, targets):
+        inputs, targets = inputs.to(self.device), targets.to(self.device)
         outputs = self.model(inputs)
 
         self.optimizer.zero_grad()
