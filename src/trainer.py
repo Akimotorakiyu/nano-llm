@@ -62,7 +62,7 @@ class NanoTrainer:
 
                 epoch_total_loss += loss
 
-                if (batch_idx + 1) % 10 == 0:
+                if (batch_idx + 1) % 1000 == 0:
                     print(f"saving model checkpoint...")
                     self.save_model(epoch, batch_idx)
 
