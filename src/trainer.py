@@ -29,13 +29,18 @@ class NanoTrainer:
         return loss.item()
 
     def train(self, epochs):
+        print("Training Configuration:")
+        print("epochs:", epochs)
+        print("batch_size:", self.dataloader.batch_size)
+
+        print("Starting training...")
         for epoch in range(epochs):
             epoch_total_loss = 0
-            for batch in self.dataloader:
+            for batch_idx, batch in enumerate(self.dataloader):
                 inputs, targets = batch
                 loss = self.train_step(inputs, targets)
 
-                print(f"Batch Loss: {loss:.4f}")
+                print(f"epoch {epoch + 1}/{epochs}, batch {batch_idx + 1}/{len(self.dataloader)}, Batch Loss: {loss:.4f}")
 
                 epoch_total_loss += loss
 
