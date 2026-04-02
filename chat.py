@@ -1,0 +1,89 @@
+import torch
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from src.model import NanoLLM, NanoConfig
+from src.tokenizer.tokenizer import NanoTokenizer
+
+
+def load_model(checkpoint_path):
+    config = NanoConfig()
+    model = NanoLLM(config)
+
+    state_dict = torch.load(checkpoint_path, map_location="cpu")
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    return model
+
+
+def chat(model, tokenizer, max_length=100, temperature=1.0, top_k=50):
+    print("=" * 50)
+    print("Chat Program - Type 'exit' to quit")
+    print("=" * 50)
+
+    while True:
+        user_input = input("\nYou: ").strip()
+
+        if user_input.lower() in ["exit", "quit", "q"]:
+            print("Goodbye!")
+            break
+
+        if not user_input:
+            continue
+
+        input_ids = tokenizer.tokenizer(user_input).squeeze(0)
+
+        generated_ids = []
+        past_key_values = None
+
+        for _ in range(max_length):
+            with torch.no_grad():
+                if len(input_ids) > 1:
+                    outputs = model(input_ids[-1].unsqueeze(0).unsqueeze(0))
+                else:
+                    outputs = model(input_ids.unsqueeze(0).unsqueeze(0))
+
+                logits = outputs[:, -1, :] / temperature
+
+                if top_k > 0:
+                    values, indices = torch.topk(logits, top_k)
+                    probs = torch.softmax(values, dim=-1)
+                    next_token = indices.squeeze(0)[
+                        torch.multinomial(probs.squeeze(0), 1)
+                    ]
+                else:
+                    probs = torch.softmax(logits, dim=-1)
+                    next_token = torch.multinomial(probs.squeeze(0), 1)
+
+                next_token = next_token.item()
+                generated_ids.append(next_token)
+
+                input_ids = torch.cat([input_ids, torch.tensor([next_token])], dim=0)
+
+                if next_token == tokenizer.eos_token_id:
+                    break
+
+        response_ids = torch.tensor(generated_ids).unsqueeze(0)
+        response = tokenizer.decode(response_ids)
+
+        print(f"Bot: {response}")
+
+
+if __name__ == "__main__":
+    checkpoint_path = "checkpoints/nano_llm_epoch_last.pth"
+
+    if not Path(checkpoint_path).exists():
+        print(f"Error: Checkpoint not found at {checkpoint_path}")
+        print("Please train the model first!")
+        sys.exit(1)
+
+    print("Loading model...")
+    model = load_model(checkpoint_path)
+    print("Model loaded successfully!")
+
+    tokenizer = NanoTokenizer()
+
+    chat(model, tokenizer)
