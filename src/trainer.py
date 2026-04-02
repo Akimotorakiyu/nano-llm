@@ -33,11 +33,11 @@ class Trainer:
             epoch_total_loss = 0
             for batch in self.dataloader:
                 inputs, targets = batch
-                loss = self.model(inputs, targets)
+                loss = self.train_step(inputs, targets)
 
                 print(f"Batch Loss: {loss:.4f}")
 
-                epoch_total_loss += loss.item()
+                epoch_total_loss += loss
 
             avg_loss = epoch_total_loss / len(self.dataloader)
             print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
