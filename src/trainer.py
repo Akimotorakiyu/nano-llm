@@ -16,6 +16,7 @@ class NanoTrainer:
         self.model = model.to(self.device)
         self.dataloader = dataloader
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-4)
+        # 默认 -100 用于忽略计算损失的 token ID
         self.loss_fn = nn.CrossEntropyLoss().to(self.device)
         print(f"Using device: {self.device}")
         if torch.cuda.is_available():
