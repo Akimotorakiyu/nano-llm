@@ -37,12 +37,24 @@ class NanoTrainer:
         outputs = self.model(inputs)
 
         self.optimizer.zero_grad()
-        loss = self.loss_fn(outputs.view(-1, outputs.size(-1)), targets.view(-1))
+
+        # 展平
+        logits = outputs.view(-1, outputs.size(-1))
+        labels = targets.view(-1)
+
+        # 损失
+        loss = self.loss_fn(logits, labels)
 
         loss.backward()
         self.optimizer.step()
 
-        return loss.item()
+        preds = torch.argmax(logits, dim=-1)
+        mask = labels != -100
+        correct = (preds[mask] == labels[mask]).sum().item()
+        total = mask.sum().item()
+        acc = correct / total if total > 0 else 0.0
+
+        return loss.item(), acc
 
     def train(self, epochs):
         print("Training Configuration:")
@@ -54,15 +66,15 @@ class NanoTrainer:
             epoch_total_loss = 0
             for batch_idx, batch in enumerate(self.dataloader):
                 inputs, targets = batch
-                loss = self.train_step(inputs, targets)
+                loss, acc = self.train_step(inputs, targets)
 
                 print(
-                    f"epoch {epoch + 1}/{epochs}, batch {batch_idx + 1}/{len(self.dataloader)}, Batch Loss: {loss:.4f}"
+                    f"epoch {epoch + 1}/{epochs}, batch {batch_idx + 1}/{len(self.dataloader)}, Batch Loss: {loss:.4f}, Accuracy: {acc:.4f}"
                 )
 
                 epoch_total_loss += loss
 
-                if (batch_idx + 1) % 1000 == 0:
+                if (batch_idx + 1) % 100 == 0:
                     print(f"saving model checkpoint...")
                     self.save_model(epoch, batch_idx)
 
