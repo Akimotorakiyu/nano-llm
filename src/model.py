@@ -28,14 +28,13 @@ class NanoAttention(nn.Module):
         V = self.V(x)
 
         # [N,D] @ [D,N] -> [N,N]
-        attention_socres = Q @ K.transpose(-2, -1) / (self.attention_dim**0.5)
+        attention_scores = Q @ K.transpose(-2, -1) / (self.attention_dim**0.5)
 
         # 生成一个上三角矩阵，遮蔽未来信息
-        mask = torch.triu(torch.ones_like(attention_socres), diagonal=1).bool()
-        attention_socres = attention_socres.masked_fill(mask, float('-inf'))
+        mask = torch.triu(torch.ones_like(attention_scores), diagonal=1)
+        attention_scores = attention_scores.masked_fill(mask.bool(), -torch.inf)
 
-
-        attention_qk = nn.functional.softmax(attention_socres, dim=-1)
+        attention_qk = nn.functional.softmax(attention_scores, dim=-1)
 
         # [N,N] @ [N,D] -> [N,D]
         output = attention_qk @ V
@@ -101,6 +100,7 @@ class NanoTransformerBlock(nn.Module):
 class NanoEmbending(nn.Module):
     def __init__(self, config: NanoConfig):
         super().__init__()
+        # Nope 设计, 直接使用 nn.Embedding 来处理输入的 token ID
         self.token_embeding = nn.Embedding(config.vocab_size, config.embeding_dim)
         self.projection = nn.Linear(config.embeding_dim, config.attention_dim)
 
