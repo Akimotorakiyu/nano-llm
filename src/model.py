@@ -4,10 +4,10 @@ import torch
 
 class NanoConfig:
     def __init__(
-        self, n_layers=8, embeding_dim=512, attention_dim=768, vocab_size=6400
+        self, n_layers=8, embedding_dim=512, attention_dim=768, vocab_size=6400
     ):
-        self.n__layers = n_layers
-        self.embeding_dim = embeding_dim
+        self.n_layers = n_layers
+        self.embedding_dim = embedding_dim
         self.attention_dim = attention_dim
         self.vocab_size = vocab_size
 
@@ -31,8 +31,13 @@ class NanoAttention(nn.Module):
         attention_scores = Q @ K.transpose(-2, -1) / (self.attention_dim**0.5)
 
         # 生成一个上三角矩阵，遮蔽未来信息
-        mask = torch.triu(torch.ones_like(attention_scores), diagonal=1)
-        attention_scores = attention_scores.masked_fill(mask.bool(), -torch.inf)
+
+        # 1. 直接生成 float 类型的 mask，避免后续的 bool() 转换开销
+        # torch.float32 也可以，但在 FP16 环境下要注意数值范围
+        mask = torch.triu(torch.ones_like(attention_scores, dtype=torch.float32), diagonal=1)
+
+        # 2. 使用 -1e9 代替 -torch.inf，防止 Softmax 出现 NaN
+        attention_scores = attention_scores.masked_fill(mask == 1, -1e9)
 
         attention_qk = nn.functional.softmax(attention_scores, dim=-1)
 
@@ -101,11 +106,11 @@ class NanoEmbending(nn.Module):
     def __init__(self, config: NanoConfig):
         super().__init__()
         # Nope 设计, 直接使用 nn.Embedding 来处理输入的 token ID
-        self.token_embeding = nn.Embedding(config.vocab_size, config.embeding_dim)
-        self.projection = nn.Linear(config.embeding_dim, config.attention_dim)
+        self.token_embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
+        self.projection = nn.Linear(config.embedding_dim, config.attention_dim)
 
     def forward(self, x):
-        x = self.token_embeding(x)
+        x = self.token_embedding(x)
         return self.projection(x)
 
 
@@ -125,7 +130,7 @@ class NanoLLM(nn.Module):
         super().__init__()
         self.embending = NanoEmbending(config)
         self.layers = nn.ModuleList(
-            [NanoTransformerBlock(config) for _ in range(config.n__layers)]
+            [NanoTransformerBlock(config) for _ in range(config.n_layers)]
         )
         self.output = NanoOutput(config)
 

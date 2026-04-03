@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import torch
 from torch import nn
 
-from dataloader import NanoDataLoader
+from src.dataloader import NanoDataLoader
 from src.model import NanoLLM
 
 

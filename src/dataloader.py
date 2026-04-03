@@ -1,7 +1,5 @@
 from torch.utils.data import DataLoader
 from dataset import NanoDataset
-import torch
-
 
 class NanoDataLoader(DataLoader):
     def __init__(self, dataset, batch_size=32, shuffle=False):
