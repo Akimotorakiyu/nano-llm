@@ -15,6 +15,12 @@ python ./src/dataloader.py
 python main.py
 ```
 
+```sh
+# 测试
+python chat.py
+```
+
+
 ## pretrain_t2t_mini.jsonl 数据集信息
 
 
