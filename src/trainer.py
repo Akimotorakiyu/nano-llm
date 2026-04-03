@@ -36,12 +36,14 @@ class NanoTrainer:
     def train_step(self, inputs, targets):
         inputs, targets = inputs.to(self.device), targets.to(self.device)
         outputs = self.model(inputs)
+        print(f"inputs shape: {inputs.shape}, outputs shape: {outputs.shape}, targets shape: {targets.shape}")
 
         self.optimizer.zero_grad()
 
         # 展平
         logits = outputs.view(-1, outputs.size(-1))
         labels = targets.view(-1)
+        print(f"logits shape: {logits.shape}, labels shape: {labels.shape}")
 
         # 损失
         loss = self.loss_fn(logits, labels)

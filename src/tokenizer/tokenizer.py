@@ -4,8 +4,7 @@ path = "./src/tokenizer/mini_mind"  # 预训练分词器的路径
 
 
 class NanoTokenizer:
-    def __init__(self, vocab_size=3000):
-        self._vocab_size = vocab_size
+    def __init__(self):
         print(f"Initializing NanoTokenizer...")
         self.mini_mind_tokenizer = AutoTokenizer.from_pretrained(
             path

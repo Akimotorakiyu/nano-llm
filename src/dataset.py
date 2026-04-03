@@ -1,5 +1,5 @@
 import torch
-from tokenizer.tokenizer import NanoTokenizer
+from src.tokenizer.tokenizer import NanoTokenizer
 from torch.utils.data import Dataset
 from datasets import load_dataset
 
