@@ -27,12 +27,16 @@ class NanoDataset(Dataset):
             .tolist()
         )
         tokens = [self.tokenizer.bos_token_id] + tokens + [self.tokenizer.eos_token_id]
-        input_ids = tokens + [self.tokenizer.pad_token_id] * (
-            self.max_length - len(tokens)
-        )
+        # 正确的 labels: 预测下一个 token，需要 shift 一个位置
+        input_ids = tokens[:-1]  # 去掉最后一个 token
+        labels = tokens[1:]      # 去掉第一个 token (BOS)，shifted
+
+        # padding
+        input_ids = input_ids + [self.tokenizer.pad_token_id] * (self.max_length - 1 - len(input_ids))
+        labels = labels + [-100] * (self.max_length - 1 - len(labels))
+
         input_ids = torch.tensor(input_ids, dtype=torch.long)
-        labels = input_ids.clone()
-        labels[input_ids == self.tokenizer.pad_token_id] = -100
+        labels = torch.tensor(labels, dtype=torch.long)
         return input_ids, labels
 
 

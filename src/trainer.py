@@ -15,7 +15,7 @@ class NanoTrainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.dataloader = dataloader
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-4)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=5e-5, weight_decay=0.01)
         # 默认 -100 用于忽略计算损失的 token ID
         self.loss_fn = nn.CrossEntropyLoss().to(self.device)
         print(f"Using device: {self.device}")
@@ -36,14 +36,12 @@ class NanoTrainer:
     def train_step(self, inputs, targets):
         inputs, targets = inputs.to(self.device), targets.to(self.device)
         outputs = self.model(inputs)
-        print(f"inputs shape: {inputs.shape}, outputs shape: {outputs.shape}, targets shape: {targets.shape}")
 
         self.optimizer.zero_grad()
 
         # 展平
         logits = outputs.view(-1, outputs.size(-1))
         labels = targets.view(-1)
-        print(f"logits shape: {logits.shape}, labels shape: {labels.shape}")
 
         # 损失
         loss = self.loss_fn(logits, labels)
