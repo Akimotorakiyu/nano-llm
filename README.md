@@ -15,6 +15,25 @@ python ./src/dataloader.py
 python main.py
 ```
 
+## 守护进程训练 (Supervisor)
+
+```sh
+# 安装 supervisor
+pip install supervisor
+
+# 启动 supervisord
+supervisord -c supervisord.conf
+
+# 控制训练进程
+supervisorctl -c supervisord.conf start nano-llm    # 启动
+supervisorctl -c supervisord.conf stop nano-llm     # 停止
+supervisorctl -c supervisord.conf restart nano-llm  # 重启
+supervisorctl -c supervisord.conf status nano-llm   # 查看状态
+
+# 查看日志
+tail -f logs/nano-llm.log
+```
+
 ```sh
 # 测试
 python chat.py

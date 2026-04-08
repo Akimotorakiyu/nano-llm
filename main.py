@@ -4,6 +4,7 @@ from src.tokenizer.tokenizer import NanoTokenizer
 from src.dataset import NanoDataset
 from src.dataloader import NanoDataLoader
 
+
 def main():
     print("Hello from nano-llm!")
     # 初始化分词器
@@ -11,9 +12,7 @@ def main():
     # 加载数据集
     dataset = NanoDataset("./data/pretrain_t2t_mini.jsonl", tokenizer)
 
-    config = NanoConfig(
-        vocab_size=tokenizer.vocab_size,
-    )
+    config = NanoConfig(vocab_size=tokenizer.vocab_size)
 
     model = NanoLLM(config)
 

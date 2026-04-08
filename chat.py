@@ -8,12 +8,12 @@ from src.model import NanoLLM, NanoConfig
 from src.tokenizer.tokenizer import NanoTokenizer
 
 
-def load_model(checkpoint_path):
-    config = NanoConfig()
+def load_model(checkpoint_path, vocab_size):
+    config = NanoConfig(vocab_size=vocab_size)
     model = NanoLLM(config)
 
-    state_dict = torch.load(checkpoint_path, map_location="cpu")
-    model.load_state_dict(state_dict)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
     return model
@@ -73,17 +73,17 @@ def chat(model, tokenizer, max_length=100, temperature=1.0, top_k=50):
 
 
 if __name__ == "__main__":
-    checkpoint_path = "checkpoints/nano_llm_epoch_last.pth"
+    checkpoint_path = "checkpoints/nano_llm_last.pth"
 
     if not Path(checkpoint_path).exists():
         print(f"Error: Checkpoint not found at {checkpoint_path}")
         print("Please train the model first!")
         sys.exit(1)
 
-    print("Loading model...")
-    model = load_model(checkpoint_path)
-    print("Model loaded successfully!")
-
     tokenizer = NanoTokenizer()
+
+    print("Loading model...")
+    model = load_model(checkpoint_path, vocab_size=tokenizer.vocab_size)
+    print("Model loaded successfully!")
 
     chat(model, tokenizer)
