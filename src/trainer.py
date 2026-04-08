@@ -15,7 +15,12 @@ class NanoTrainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.dataloader = dataloader
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=5e-5, weight_decay=0.01)
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(),
+            lr=5e-5,         # 保持你现在的学习率
+            weight_decay=1e-5, # weight_decay 绝对不能 > 1e-4
+            betas=(0.9, 0.95) # 推荐加上，后期更新更快
+        )
         # 默认 -100 用于忽略计算损失的 token ID
         self.loss_fn = nn.CrossEntropyLoss().to(self.device)
         print(f"Using device: {self.device}")
