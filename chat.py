@@ -35,30 +35,29 @@ def chat(model, tokenizer, max_length=100, temperature=1.0, top_k=50):
             continue
 
         input_ids = tokenizer.tokenizer(user_input).squeeze(0)
+        # 添加 BOS token，与训练数据格式一致
+        input_ids = torch.cat([torch.tensor([tokenizer.bos_token_id]), input_ids], dim=0)
 
         generated_ids = []
-        past_key_values = None
 
         for _ in range(max_length):
             with torch.no_grad():
-                if len(input_ids) > 1:
-                    outputs = model(input_ids[-1].unsqueeze(0).unsqueeze(0))
-                else:
-                    outputs = model(input_ids.unsqueeze(0).unsqueeze(0))
-
+                outputs = model(input_ids.unsqueeze(0))
                 logits = outputs[:, -1, :] / temperature
 
                 if top_k > 0:
                     values, indices = torch.topk(logits, top_k)
                     probs = torch.softmax(values, dim=-1)
-                    next_token = indices.squeeze(0)[
-                        torch.multinomial(probs.squeeze(0), 1)
-                    ]
+                    chosen_idx = torch.multinomial(probs.squeeze(0), 1)
+                    next_token = indices[0, chosen_idx.item()].item()
                 else:
                     probs = torch.softmax(logits, dim=-1)
-                    next_token = torch.multinomial(probs.squeeze(0), 1)
+                    next_token = torch.multinomial(probs.squeeze(0), 1).item()
 
-                next_token = next_token.item()
+                # 如果还没生成任何内容就遇到 EOS，跳过继续生成
+                if next_token == tokenizer.eos_token_id and len(generated_ids) == 0:
+                    continue
+
                 generated_ids.append(next_token)
 
                 input_ids = torch.cat([input_ids, torch.tensor([next_token])], dim=0)
