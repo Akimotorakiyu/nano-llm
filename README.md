@@ -34,10 +34,13 @@ supervisorctl -c supervisord.conf status nano-llm   # 查看状态
 tail -f logs/nano-llm.log
 ```
 
+## 对话
 ```sh
 # 测试
 python chat.py
 ```
+
+![](images/test_on_loss2.x_checkpoint.png)
 
 
 ## pretrain_t2t_mini.jsonl 数据集信息
