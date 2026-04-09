@@ -1,6 +1,15 @@
 # Nano
 
 ```sh
+# 下载数据 pretrain_t2t_mini.jsonl，可以手动下载也可以命令下载
+# https://www.modelscope.cn/datasets/gongjy/minimind_dataset/files
+
+# 使用 modelscope 下载数据
+uv add modelscope
+modelscope download --dataset gongjy/minimind_dataset pretrain_t2t_mini.jsonl --local_dir ./data
+```
+
+```sh
 # 测试 dataset
 python ./src/dataset.py
 ```
