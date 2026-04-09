@@ -1,17 +1,16 @@
+from pathlib import Path
+
 from transformers import AutoTokenizer
 
-path = "./src/tokenizer/mini_mind"  # 预训练分词器的路径
+DEFAULT_TOKENIZER_PATH = Path(__file__).parent / "mini_mind"
 
 
 class NanoTokenizer:
-    def __init__(self):
-        print(f"Initializing NanoTokenizer...")
-        self.mini_mind_tokenizer = AutoTokenizer.from_pretrained(
-            path
-        )  # 加载预训练的分词器
-        print(
-            f"Tokenizer loaded. Vocabulary size: {self.mini_mind_tokenizer.vocab_size}"
-        )
+    def __init__(self, tokenizer_path=None):
+        path = tokenizer_path or DEFAULT_TOKENIZER_PATH
+        print(f"Initializing NanoTokenizer from {path}...")
+        self.mini_mind_tokenizer = AutoTokenizer.from_pretrained(path)
+        print(f"Tokenizer loaded. Vocabulary size: {self.mini_mind_tokenizer.vocab_size}")
 
     def __call__(
         self, text, add_special_tokens=False, max_length=None, truncation=False
@@ -25,15 +24,14 @@ class NanoTokenizer:
         )
 
     def tokenizer(self, text):
-        # 使用预训练的分词器进行分词
         inputs = self.mini_mind_tokenizer(text, return_tensors="pt")
-        token_ids = inputs["input_ids"]  # 获取分词后的 token IDs
+        token_ids = inputs["input_ids"]
         return token_ids
 
     def decode(self, token_ids):
-        # 使用预训练的分词器进行反向分词
-        text = self.mini_mind_tokenizer.decode(token_ids[0], skip_special_tokens=True)
-        return text
+        if token_ids.dim() > 1:
+            token_ids = token_ids[0]
+        return self.mini_mind_tokenizer.decode(token_ids, skip_special_tokens=True)
 
     @property
     def bos_token_id(self):
@@ -61,7 +59,4 @@ if __name__ == "__main__":
     decoded_text = tokenizer.decode(token_ids)
     print("Decoded Text:", decoded_text)
 
-    print("Vocabulary Size:", tokenizer.vocab_size())
-
-    # 输出分词器的关键词
-    print("Tokenizer Keywords:", tokenizer.mini_mind_tokenizer.get_vocab().keys())
+    print("Vocabulary Size:", tokenizer.vocab_size)

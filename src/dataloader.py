@@ -1,5 +1,6 @@
 from torch.utils.data import DataLoader
-from dataset import NanoDataset
+
+from .dataset import NanoDataset
 
 class NanoDataLoader(DataLoader):
     def __init__(self, dataset, batch_size=32, shuffle=True):
@@ -9,7 +10,7 @@ class NanoDataLoader(DataLoader):
 
 
 if __name__ == "__main__":
-    from tokenizer.tokenizer import NanoTokenizer
+    from .tokenizer.tokenizer import NanoTokenizer
 
     tokenizer = NanoTokenizer()
     dataset = NanoDataset("./data/pretrain_t2t_mini.jsonl", tokenizer, max_length=512)

@@ -1,5 +1,4 @@
 import torch
-from src.tokenizer.tokenizer import NanoTokenizer
 from torch.utils.data import Dataset
 from datasets import load_dataset
 
@@ -41,6 +40,8 @@ class NanoDataset(Dataset):
 
 
 if __name__ == "__main__":
+    from .tokenizer.tokenizer import NanoTokenizer
+
     tokenizer = NanoTokenizer()
     dataset = NanoDataset("./data/pretrain_t2t_mini.jsonl", tokenizer, max_length=512)
     print("Dataset length:", len(dataset))

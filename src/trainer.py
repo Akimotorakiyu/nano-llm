@@ -1,13 +1,10 @@
-import sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent))
 
 import torch
 from torch import nn
 
-from src.dataloader import NanoDataLoader
-from src.model import NanoLLM
+from .dataloader import NanoDataLoader
+from .model import NanoLLM
 
 
 class NanoTrainer:
@@ -17,12 +14,11 @@ class NanoTrainer:
         self.dataloader = dataloader
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
-            lr=5e-5,         # 保持你现在的学习率
-            weight_decay=1e-5, # weight_decay 绝对不能 > 1e-4
-            betas=(0.9, 0.95) # 推荐加上，后期更新更快
+            lr=5e-5,
+            weight_decay=1e-5,
+            betas=(0.9, 0.95),
         )
-        # 默认 -100 用于忽略计算损失的 token ID
-        self.loss_fn = nn.CrossEntropyLoss().to(self.device)
+        self.loss_fn = nn.CrossEntropyLoss()
         print(f"Using device: {self.device}")
         if torch.cuda.is_available():
             print(f"GPU: {torch.cuda.get_device_name(0)}")
@@ -108,6 +104,7 @@ class NanoTrainer:
         for epoch in range(start_epoch, epochs):
             self.current_epoch = epoch
             epoch_total_loss = 0
+            num_batches = 0
             for batch_idx, batch in enumerate(self.dataloader):
                 # 跳过已训练的 batch
                 if epoch == start_epoch and batch_idx <= start_batch:
@@ -122,10 +119,12 @@ class NanoTrainer:
                 )
 
                 epoch_total_loss += loss
+                num_batches += 1
 
                 if (batch_idx + 1) % 1000 == 0:
                     print("saving model checkpoint...")
                     self.save_model(epoch, batch_idx)
 
-            avg_loss = epoch_total_loss / len(self.dataloader)
-            print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
+            if num_batches > 0:
+                avg_loss = epoch_total_loss / num_batches
+                print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")

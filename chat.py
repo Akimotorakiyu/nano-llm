@@ -36,7 +36,7 @@ def chat(model, tokenizer, max_length=100, temperature=1.0, top_k=50):
 
         input_ids = tokenizer.tokenizer(user_input).squeeze(0)
         # 添加 BOS token，与训练数据格式一致
-        input_ids = torch.cat([torch.tensor([tokenizer.bos_token_id]), input_ids], dim=0)
+        input_ids = torch.cat([torch.tensor([tokenizer.bos_token_id], dtype=torch.long), input_ids], dim=0)
 
         generated_ids = []
 
@@ -60,7 +60,7 @@ def chat(model, tokenizer, max_length=100, temperature=1.0, top_k=50):
 
                 generated_ids.append(next_token)
 
-                input_ids = torch.cat([input_ids, torch.tensor([next_token])], dim=0)
+                input_ids = torch.cat([input_ids, torch.tensor([next_token], dtype=torch.long)], dim=0)
 
                 if next_token == tokenizer.eos_token_id:
                     break
