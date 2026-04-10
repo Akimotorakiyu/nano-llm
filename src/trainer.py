@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import torch
@@ -5,6 +6,19 @@ from torch import nn
 
 from .dataloader import NanoDataLoader
 from .model import NanoLLM
+
+
+class IterTimer:
+    def __init__(self):
+        self._start = None
+
+    def tick(self):
+        if self._start is None:
+            self._start = time.time()
+            return 0.0
+        elapsed = time.time() - self._start
+        self._start = time.time()
+        return 1.0 / elapsed if elapsed > 0 else 0.0
 
 
 class NanoTrainer:
@@ -101,6 +115,7 @@ class NanoTrainer:
             print(f"resuming from epoch {start_epoch + 1}, batch {start_batch + 1}")
 
         print("Starting training...")
+        timer = IterTimer()
         for epoch in range(start_epoch, epochs):
             self.current_epoch = epoch
             epoch_total_loss = 0
@@ -114,8 +129,9 @@ class NanoTrainer:
                 inputs, targets = batch
                 loss, acc = self.train_step(inputs, targets)
 
+                iter_per_sec = timer.tick()
                 print(
-                    f"epoch {epoch + 1}/{epochs}, batch {batch_idx + 1}/{len(self.dataloader)}, Batch Loss: {loss:.4f}, Accuracy: {acc:.4f}"
+                    f"epoch {epoch + 1}/{epochs}, batch {batch_idx + 1}/{len(self.dataloader)}, Batch Loss: {loss:.4f}, Accuracy: {acc:.4f}, iter/s: {iter_per_sec:.2f}"
                 )
 
                 epoch_total_loss += loss

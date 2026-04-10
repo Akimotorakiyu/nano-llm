@@ -10,6 +10,11 @@ uv sync
 ```
 
 ```sh
+# 激活环境
+source .venv/bin/activate
+```
+
+```sh
 # 下载数据 pretrain_t2t_mini.jsonl，可以手动下载也可以命令下载
 # https://www.modelscope.cn/datasets/gongjy/minimind_dataset/files
 
