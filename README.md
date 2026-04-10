@@ -1,11 +1,19 @@
 # Nano
+```sh
+# install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+```sh
+# 创建环境、安装依赖
+uv sync
+```
 
 ```sh
 # 下载数据 pretrain_t2t_mini.jsonl，可以手动下载也可以命令下载
 # https://www.modelscope.cn/datasets/gongjy/minimind_dataset/files
 
 # 使用 modelscope 下载数据
-uv add modelscope
 modelscope download --dataset gongjy/minimind_dataset pretrain_t2t_mini.jsonl --local_dir ./data
 ```
 
