@@ -12,6 +12,7 @@ dependencies = [
     "transformers>=5.4.0",
     "fastapi>=0.135.0",
     "uvicorn>=0.44.0",
+    "swanlab[dashboard]>=0.7.15",
 ]
 
 [project.scripts]

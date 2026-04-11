@@ -1,11 +1,12 @@
 import time
 from pathlib import Path
 
+import swanlab
 import torch
 from torch import nn
 
 from .dataloader import NanoDataLoader
-from .model import NanoLLM
+from .model import NanoLLM, NanoConfig
 
 
 class IterTimer:
@@ -22,7 +23,14 @@ class IterTimer:
 
 
 class NanoTrainer:
-    def __init__(self, model: NanoLLM, dataloader: NanoDataLoader):
+    def __init__(
+        self,
+        model: NanoLLM,
+        dataloader: NanoDataLoader,
+        config: NanoConfig = None,
+        swanlab_project: str = "nano-llm",
+        swanlab_experiment_name: str = None,
+    ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.dataloader = dataloader
@@ -33,6 +41,25 @@ class NanoTrainer:
             betas=(0.9, 0.95),
         )
         self.loss_fn = nn.CrossEntropyLoss()
+        self.global_step = 0
+
+        # 初始化 SwanLab
+        swanlab.init(
+            project=swanlab_project,
+            experiment_name=swanlab_experiment_name,
+            config={
+                "learning_rate": 5e-5,
+                "weight_decay": 1e-5,
+                "betas": (0.9, 0.95),
+                "batch_size": dataloader.batch_size,
+                "n_layers": config.n_layers if config else 8,
+                "embedding_dim": config.embedding_dim if config else 512,
+                "attention_dim": config.attention_dim if config else 768,
+                "vocab_size": config.vocab_size if config else 6400,
+                "optimizer": "AdamW",
+            },
+        )
+
         print(f"Using device: {self.device}")
         if torch.cuda.is_available():
             print(f"GPU: {torch.cuda.get_device_name(0)}")
@@ -41,7 +68,7 @@ class NanoTrainer:
         self.current_epoch = 0
         self.current_batch = -1
 
-    def save_model(self, epoch, batch_idx):
+    def save_model(self, epoch, batch_idx, loss=None):
         checkpoint_dir = Path("checkpoints")
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
@@ -51,7 +78,10 @@ class NanoTrainer:
             "batch_idx": batch_idx,
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
+            "global_step": self.global_step,
         }
+        if loss is not None:
+            checkpoint["loss"] = loss
         torch.save(
             checkpoint,
             checkpoint_dir / f"nano_llm_epoch_{epoch + 1}_{batch_idx + 1}.pth",
@@ -67,8 +97,9 @@ class NanoTrainer:
         checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.global_step = checkpoint.get("global_step", 0)
         print(f"Loaded checkpoint from {checkpoint_path}")
-        return checkpoint["epoch"], checkpoint["batch_idx"]
+        return checkpoint["epoch"], checkpoint["batch_idx"], checkpoint.get("loss")
 
     def train_step(self, inputs, targets):
         inputs, targets = inputs.to(self.device), targets.to(self.device)
@@ -92,6 +123,17 @@ class NanoTrainer:
         total = mask.sum().item()
         acc = correct / total if total > 0 else 0.0
 
+        # 记录训练指标到 SwanLab
+        swanlab.log(
+            {
+                "train/loss": loss.item(),
+                "train/accuracy": acc,
+                "train/learning_rate": self.optimizer.param_groups[0]["lr"],
+            },
+            step=self.global_step,
+        )
+        self.global_step += 1
+
         return loss.item(), acc
 
     def train(self, epochs, resume_from="checkpoints/nano_llm_last.pth"):
@@ -106,7 +148,9 @@ class NanoTrainer:
 
         result = self.load_checkpoint(resume_from)
         if result is not None:
-            start_epoch, start_batch = result
+            start_epoch, start_batch, last_loss = result
+            if last_loss is not None:
+                print(f"Last checkpoint loss: {last_loss:.4f}")
 
         print("Training Configuration:")
         print("epochs:", epochs)
@@ -139,8 +183,19 @@ class NanoTrainer:
 
                 if (batch_idx + 1) % 1000 == 0:
                     print("saving model checkpoint...")
-                    self.save_model(epoch, batch_idx)
+                    self.save_model(epoch, batch_idx, loss=loss)
 
             if num_batches > 0:
                 avg_loss = epoch_total_loss / num_batches
                 print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
+                # 记录 epoch 级别指标
+                swanlab.log(
+                    {
+                        "epoch/avg_loss": avg_loss,
+                        "epoch/num": epoch + 1,
+                    },
+                    step=self.global_step,
+                )
+
+        # 训练结束，关闭 SwanLab
+        swanlab.finish()
