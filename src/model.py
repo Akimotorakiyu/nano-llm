@@ -24,7 +24,7 @@ class NanoAttention(nn.Module):
     def forward(self, x):
         # [N,D] @ [D,D] -> [N,D]
         Q = self.Q(x)
-        K = self.K(x)
+        K = Q
         V = x
 
         # [N,D] @ [D,N] -> [N,N]
