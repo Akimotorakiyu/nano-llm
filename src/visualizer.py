@@ -17,6 +17,7 @@ app = FastAPI(title="Nano LLM Weight Visualizer")
 # Global checkpoint cache
 _checkpoint_cache = None
 _checkpoint_path = None
+_checkpoint_mtime = None
 
 
 class WeightInfo(BaseModel):
@@ -38,18 +39,24 @@ class LayerInfo(BaseModel):
 
 
 def load_checkpoint(checkpoint_path: str) -> dict:
-    """Load checkpoint with caching"""
-    global _checkpoint_cache, _checkpoint_path
-
-    if _checkpoint_cache is not None and _checkpoint_path == checkpoint_path:
-        return _checkpoint_cache
+    """Load checkpoint with caching, reload if file changed"""
+    global _checkpoint_cache, _checkpoint_path, _checkpoint_mtime
 
     path = Path(checkpoint_path)
     if not path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
+    current_mtime = path.stat().st_mtime
+
+    # Return cached if path and mtime unchanged
+    if (_checkpoint_cache is not None and
+        _checkpoint_path == checkpoint_path and
+        _checkpoint_mtime == current_mtime):
+        return _checkpoint_cache
+
     _checkpoint_cache = torch.load(path, map_location="cpu", weights_only=False)
     _checkpoint_path = checkpoint_path
+    _checkpoint_mtime = current_mtime
     return _checkpoint_cache
 
 
@@ -147,9 +154,13 @@ async def get_checkpoint_info(checkpoint_path: str = "checkpoints/nano_llm_last.
             layers[layer_name] = []
         layers[layer_name].append(stats.model_dump())
 
+    # Convert 0-indexed epoch and batch_idx to 1-indexed for display
+    epoch = ckpt.get("epoch")
+    batch_idx = ckpt.get("batch_idx")
+
     return JSONResponse({
-        "epoch": ckpt.get("epoch"),
-        "batch_idx": ckpt.get("batch_idx"),
+        "epoch": (epoch + 1) if epoch is not None else None,
+        "batch_idx": (batch_idx + 1) if batch_idx is not None else None,
         "total_params": sum(t.numel() for t in model_state.values()),
         "total_layers": len(set(k.split(".")[0] + "." + k.split(".")[1] if k.startswith("layers.") else k.split(".")[0] for k in model_state.keys())),
         "layers": layers,
