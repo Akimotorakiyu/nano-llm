@@ -168,6 +168,135 @@ async def get_checkpoint_info(checkpoint_path: str = "checkpoints/nano_llm_last.
     })
 
 
+@app.get("/api/weight/{weight_name:path}/fft")
+async def get_weight_fft(
+    weight_name: str,
+    checkpoint_path: str = "checkpoints/nano_llm_last.pth",
+    num_components: int = 6,
+    max_samples: int = 200,
+):
+    """Get FFT of weight tensor with frequency component waveforms"""
+    try:
+        ckpt = load_checkpoint(checkpoint_path)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    model_state = ckpt["model_state_dict"]
+
+    # Find the weight
+    actual_name = weight_name
+    if actual_name not in model_state:
+        for k in model_state.keys():
+            if k.endswith(weight_name) or k == weight_name:
+                actual_name = k
+                break
+
+    if actual_name not in model_state:
+        raise HTTPException(status_code=404, detail=f"Weight '{weight_name}' not found")
+
+    tensor = model_state[actual_name]
+    tensor_np = tensor.float().numpy()
+
+    # Flatten to 1D for FFT decomposition
+    original_shape = tensor_np.shape
+    flattened = tensor_np.flatten()
+    n_total = len(flattened)
+
+    # Compute FFT
+    fft_result = np.fft.fft(flattened)
+    fft_magnitude = np.abs(fft_result)
+    frequencies = np.fft.fftfreq(n_total)
+
+    # Get positive frequencies
+    n_half = n_total // 2
+    pos_freqs = frequencies[:n_half]
+    pos_magnitude = fft_magnitude[:n_half]
+
+    # Find top frequency components by magnitude
+    top_indices = np.argsort(pos_magnitude)[::-1][:num_components]
+
+    # Generate waveform for each frequency component
+    # Downsample for visualization
+    sample_step = max(1, n_total // max_samples)
+    x = np.arange(0, n_total, sample_step)
+
+    components = []
+    for idx in top_indices:
+        freq = frequencies[idx]
+        mag = fft_magnitude[idx]
+        phase = np.angle(fft_result[idx])
+
+        # Generate the sinusoidal component: A * cos(2π * freq * x + phase)
+        # For real signals, we need to combine positive and negative frequency
+        if idx == 0:
+            # DC component (zero frequency)
+            waveform = np.full(len(x), mag / n_total)
+        else:
+            # Get the conjugate component index
+            neg_idx = n_total - idx
+            # Amplitude (need to divide by n for proper scaling)
+            amp = 2 * mag / n_total
+            waveform = amp * np.cos(2 * np.pi * freq * x + phase)
+
+        components.append({
+            "frequency": float(freq),
+            "magnitude": float(mag),
+            "phase": float(phase),
+            "normalized_amplitude": float(2 * mag / n_total) if idx > 0 else float(mag / n_total),
+            "waveform": waveform.tolist(),
+        })
+
+    # Also compute filtered signals (low, mid, high frequency bands)
+    n_third = n_half // 3
+
+    # Low frequency component (DC + first 1/3 of frequencies)
+    low_fft = np.zeros_like(fft_result)
+    low_fft[:n_third] = fft_result[:n_third]
+    low_fft[-n_third+1:] = fft_result[-n_third+1:]
+    low_signal = np.real(np.fft.ifft(low_fft))
+
+    # Mid frequency component (second 1/3)
+    mid_fft = np.zeros_like(fft_result)
+    mid_fft[n_third:2*n_third] = fft_result[n_third:2*n_third]
+    mid_fft[-2*n_third+1:-n_third+1] = fft_result[-2*n_third+1:-n_third+1]
+    mid_signal = np.real(np.fft.ifft(mid_fft))
+
+    # High frequency component (last 1/3)
+    high_fft = np.zeros_like(fft_result)
+    high_fft[2*n_third:n_half] = fft_result[2*n_third:n_half]
+    high_fft[-n_half+1:-2*n_third+1] = fft_result[-n_half+1:-2*n_third+1]
+    high_signal = np.real(np.fft.ifft(high_fft))
+
+    # Original signal (downsampled)
+    original_downsampled = flattened[::sample_step]
+
+    # Downsample band signals
+    low_downsampled = low_signal[::sample_step]
+    mid_downsampled = mid_signal[::sample_step]
+    high_downsampled = high_signal[::sample_step]
+
+    fft_data = {
+        "type": "1d",
+        "original_shape": list(original_shape),
+        "total_samples": n_total,
+        "frequencies": pos_freqs.tolist(),
+        "magnitude": pos_magnitude.tolist(),
+        "components": components,
+        "bands": {
+            "original": original_downsampled.tolist(),
+            "low_freq": low_downsampled.tolist(),
+            "mid_freq": mid_downsampled.tolist(),
+            "high_freq": high_downsampled.tolist(),
+        },
+        "x_axis": x.tolist(),
+    }
+
+    return JSONResponse({
+        "name": actual_name,
+        "fft": fft_data,
+    })
+
+
 @app.get("/api/weight/{weight_name:path}")
 async def get_weight_data(
     weight_name: str,
@@ -500,6 +629,28 @@ def get_embedded_html() -> str:
                         </div>
                     </div>
                 </div>
+                <div class="plots-container" style="border-top: 1px solid #0f3460;">
+                    <div class="plot-box" style="flex: 1;">
+                        <h4>FFT Magnitude Spectrum</h4>
+                        <div class="plot-wrapper" id="fft-spectrum-plot">
+                            <div class="loading">Select a weight from the sidebar</div>
+                        </div>
+                    </div>
+                    <div class="plot-box" style="flex: 1;">
+                        <h4>Frequency Bands Decomposition</h4>
+                        <div class="plot-wrapper" id="fft-bands-plot">
+                            <div class="loading">Select a weight from the sidebar</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="plots-container" style="border-top: 1px solid #0f3460; max-height: 280px;">
+                    <div class="plot-box" style="flex: 1;">
+                        <h4>Top Frequency Component Waveforms</h4>
+                        <div class="plot-wrapper" id="fft-components-plot">
+                            <div class="loading">Select a weight from the sidebar</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="view-content" id="overview-view">
@@ -590,6 +741,9 @@ def get_embedded_html() -> str:
             // Show loading
             document.getElementById('heatmap-plot').innerHTML = '<div class="loading">Loading...</div>';
             document.getElementById('histogram-plot').innerHTML = '<div class="loading">Loading...</div>';
+            document.getElementById('fft-spectrum-plot').innerHTML = '<div class="loading">Loading...</div>';
+            document.getElementById('fft-bands-plot').innerHTML = '<div class="loading">Loading...</div>';
+            document.getElementById('fft-components-plot').innerHTML = '<div class="loading">Loading...</div>';
 
             try {
                 const response = await fetch(`${API_BASE}/api/weight/${encodeURIComponent(name)}?max_size=100`);
@@ -609,10 +763,140 @@ def get_embedded_html() -> str:
 
                 renderHeatmap(data);
                 renderHistogram(data);
+
+                // Load and render FFT
+                loadFFT(name);
             } catch (error) {
                 console.error('Failed to load weight:', error);
                 document.getElementById('heatmap-plot').innerHTML = '<div class="loading">Failed to load weight</div>';
             }
+        }
+
+        async function loadFFT(name) {
+            try {
+                const response = await fetch(`${API_BASE}/api/weight/${encodeURIComponent(name)}/fft`);
+                const data = await response.json();
+                renderFFT(data);
+            } catch (error) {
+                console.error('Failed to load FFT:', error);
+                document.getElementById('fft-spectrum-plot').innerHTML = '<div class="loading">Failed to load FFT</div>';
+                document.getElementById('fft-bands-plot').innerHTML = '<div class="loading">Failed to load FFT</div>';
+                document.getElementById('fft-components-plot').innerHTML = '<div class="loading">Failed to load FFT</div>';
+            }
+        }
+
+        function renderFFT(data) {
+            const fftData = data.fft;
+
+            // 1. Render FFT Magnitude Spectrum
+            const spectrumContainer = document.getElementById('fft-spectrum-plot');
+            spectrumContainer.innerHTML = '';
+
+            const spectrumData = [{
+                x: fftData.frequencies,
+                y: fftData.magnitude,
+                type: 'scatter',
+                mode: 'lines',
+                fill: 'tozeroy',
+                line: { color: '#4fc3f7', width: 1 },
+            }];
+
+            const spectrumLayout = {
+                margin: { l: 50, r: 20, t: 10, b: 40 },
+                xaxis: { title: 'Frequency' },
+                yaxis: { title: 'Magnitude', type: 'log' },
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                font: { color: '#888' },
+            };
+
+            Plotly.newPlot(spectrumContainer, spectrumData, spectrumLayout, { responsive: true });
+
+            // 2. Render Frequency Bands Decomposition (subplots)
+            const bandsContainer = document.getElementById('fft-bands-plot');
+            bandsContainer.innerHTML = '';
+
+            const x = fftData.x_axis;
+            const bands = fftData.bands;
+            const colors = ['#e94560', '#f7b731', '#26de81'];
+            const bandNames = ['Low Freq', 'Mid Freq', 'High Freq'];
+            const bandKeys = ['low_freq', 'mid_freq', 'high_freq'];
+
+            const bandsData = [];
+            for (let i = 0; i < 3; i++) {
+                bandsData.push({
+                    x: x,
+                    y: bands[bandKeys[i]],
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: bandNames[i],
+                    line: { color: colors[i], width: 1 },
+                    xaxis: 'x',
+                    yaxis: `y${i + 1}`,
+                });
+            }
+
+            const bandsLayout = {
+                margin: { l: 40, r: 20, t: 10, b: 40 },
+                grid: { rows: 3, columns: 1, pattern: 'independent' },
+                xaxis: { title: '', domain: [0, 1] },
+                yaxis: { title: 'Low', domain: [0.67, 1], titlefont: { size: 10 } },
+                yaxis2: { title: 'Mid', domain: [0.34, 0.66], titlefont: { size: 10 } },
+                yaxis3: { title: 'High', domain: [0, 0.33], titlefont: { size: 10 } },
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                font: { color: '#888', size: 10 },
+                showlegend: false,
+                height: 200,
+            };
+
+            Plotly.newPlot(bandsContainer, bandsData, bandsLayout, { responsive: true });
+
+            // 3. Render Top Frequency Components
+            const componentsContainer = document.getElementById('fft-components-plot');
+            componentsContainer.innerHTML = '';
+
+            const components = fftData.components;
+            const componentsData = [];
+            const numRows = Math.min(components.length, 6);
+
+            for (let i = 0; i < numRows; i++) {
+                const comp = components[i];
+                componentsData.push({
+                    x: x,
+                    y: comp.waveform,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `f=${comp.frequency.toFixed(4)} (A=${comp.normalized_amplitude.toFixed(4)})`,
+                    line: { width: 1 },
+                    xaxis: 'x',
+                    yaxis: `y${i + 1}`,
+                });
+            }
+
+            const componentsLayout = {
+                margin: { l: 40, r: 20, t: 10, b: 40 },
+                grid: { rows: numRows, columns: 1, pattern: 'independent' },
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                font: { color: '#888', size: 10 },
+                showlegend: false,
+                height: 200,
+            };
+
+            // Add axis configs
+            for (let i = 0; i < numRows; i++) {
+                const domainStart = (numRows - 1 - i) / numRows;
+                const domainEnd = (numRows - i) / numRows;
+                componentsLayout[`yaxis${i + 1}`] = {
+                    domain: [domainStart, domainEnd],
+                    title: components[i].frequency.toFixed(4),
+                    titlefont: { size: 9 },
+                };
+            }
+            componentsLayout.xaxis = { domain: [0, 1] };
+
+            Plotly.newPlot(componentsContainer, componentsData, componentsLayout, { responsive: true });
         }
 
         function renderHeatmap(data) {
