@@ -17,15 +17,15 @@ class NanoAttention(nn.Module):
     def __init__(self, config: NanoConfig):
         super().__init__()
         self.attention_dim = config.attention_dim
-        self.Q = nn.Linear(config.attention_dim, config.attention_dim)
-        self.K = nn.Linear(config.attention_dim, config.attention_dim)
-        self.V = nn.Linear(config.attention_dim, config.attention_dim)
+        self.Q = nn.Linear(config.attention_dim, config.attention_dim,bias=False)
+        self.K = self.Q 
+        self.V = nn.Linear(config.attention_dim, config.attention_dim,bias=False)
 
     def forward(self, x):
         # [N,D] @ [D,D] -> [N,D]
         Q = self.Q(x)
         K = self.K(x)
-        V = self.V(x)
+        V = x
 
         # [N,D] @ [D,N] -> [N,N]
         attention_scores = Q @ K.transpose(-2, -1) / (self.attention_dim**0.5)
@@ -107,7 +107,7 @@ class NanoEmbending(nn.Module):
         super().__init__()
         # Nope 设计, 直接使用 nn.Embedding 来处理输入的 token ID
         self.token_embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
-        self.projection = nn.Linear(config.embedding_dim, config.attention_dim)
+        self.projection = nn.Linear(config.embedding_dim, config.attention_dim, bias=False)
 
     def forward(self, x):
         x = self.token_embedding(x)
@@ -118,7 +118,7 @@ class NanoOutput(nn.Module):
     def __init__(self, config: NanoConfig):
         super().__init__()
         self.rms = nn.RMSNorm(config.attention_dim)
-        self.projection = nn.Linear(config.attention_dim, config.vocab_size)
+        self.projection = nn.Linear(config.attention_dim, config.vocab_size, bias=True)
 
     def forward(self, x):
         x = self.rms(x)

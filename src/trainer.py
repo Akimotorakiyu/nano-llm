@@ -53,9 +53,9 @@ class NanoTrainer:
 
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
-            lr=self.train_config["learning_rate"],
-            weight_decay=self.train_config["weight_decay"],
-            betas=self.train_config["betas"],
+            lr=1e-5,
+            weight_decay=1e-5,
+            betas=(0.9, 0.95),
         )
         self.loss_fn = nn.CrossEntropyLoss()
         self.global_step = 0
