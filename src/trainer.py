@@ -38,7 +38,7 @@ class NanoTrainer:
         # 统一配置管理
         self.train_config = {
             "optimizer": "AdamW",
-            "learning_rate": 1e-5,
+            "learning_rate": 1e-6,
             "weight_decay": 1e-5,
             "betas": (0.9, 0.95),
             "batch_size": dataloader.batch_size,
@@ -53,9 +53,9 @@ class NanoTrainer:
 
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
-            lr=1e-5,
-            weight_decay=1e-5,
-            betas=(0.9, 0.95),
+            lr=self.train_config["learning_rate"],
+            weight_decay=self.train_config["weight_decay"],
+            betas=self.train_config["betas"],
         )
         self.loss_fn = nn.CrossEntropyLoss()
         self.global_step = 0
