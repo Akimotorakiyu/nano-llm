@@ -37,6 +37,11 @@ python ./src/dataloader.py
 python main.py
 ```
 
+```sh
+# dashboard
+swanlab watch 
+```
+
 ## 守护进程训练 (Supervisor)
 
 ```sh
