@@ -34,11 +34,28 @@ class NanoTrainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.dataloader = dataloader
+
+        # 统一配置管理
+        self.train_config = {
+            "optimizer": "AdamW",
+            "learning_rate": 1e-5,
+            "weight_decay": 1e-5,
+            "betas": (0.9, 0.95),
+            "batch_size": dataloader.batch_size,
+        }
+        if config is not None:
+            self.train_config.update({
+                "n_layers": config.n_layers,
+                "embedding_dim": config.embedding_dim,
+                "attention_dim": config.attention_dim,
+                "vocab_size": config.vocab_size,
+            })
+
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(),
-            lr=5e-5,
-            weight_decay=1e-5,
-            betas=(0.9, 0.95),
+            lr=self.train_config["learning_rate"],
+            weight_decay=self.train_config["weight_decay"],
+            betas=self.train_config["betas"],
         )
         self.loss_fn = nn.CrossEntropyLoss()
         self.global_step = 0
@@ -47,17 +64,7 @@ class NanoTrainer:
         swanlab.init(
             project=swanlab_project,
             experiment_name=swanlab_experiment_name,
-            config={
-                "learning_rate": 5e-5,
-                "weight_decay": 1e-5,
-                "betas": (0.9, 0.95),
-                "batch_size": dataloader.batch_size,
-                "n_layers": config.n_layers if config else 8,
-                "embedding_dim": config.embedding_dim if config else 512,
-                "attention_dim": config.attention_dim if config else 768,
-                "vocab_size": config.vocab_size if config else 6400,
-                "optimizer": "AdamW",
-            },
+            config=self.train_config,
         )
 
         print(f"Using device: {self.device}")
