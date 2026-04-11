@@ -56,6 +56,18 @@ supervisorctl -c supervisord.conf status nano-llm   # 查看状态
 tail -f logs/nano-llm.log
 ```
 
+## 模型权重可视化
+```sh
+# 启动可视化服务
+python src/visualizer.py --host 127.0.0.1 --port 8080 --checkpoint checkpoints/nano_llm_last.pth
+# 访问 http://localhost:8080 查看可视化界面
+```
+
+参数说明：
+- `--host`: 绑定的主机地址，默认 `127.0.0.1`
+- `--port`: 绑定的端口，默认 `8080`
+- `--checkpoint`: 模型检查点路径，默认 `checkpoints/nano_llm_last.pth`
+
 ## 对话
 ```sh
 # 测试
