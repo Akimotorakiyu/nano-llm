@@ -7,6 +7,9 @@ from torch import nn
 
 from .dataloader import NanoDataLoader
 from .model import NanoLLM, NanoConfig
+from .optim import CAdamW
+
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 
 class IterTimer:
@@ -35,12 +38,12 @@ class NanoTrainer:
         self.model = model.to(self.device)
         self.dataloader = dataloader
 
-        # 统一配置管理
+        # 统一配置管理 —— 最终最优超参
         self.train_config = {
-            "optimizer": "AdamW",
-            "learning_rate": 1e-7,
-            "weight_decay": 1e-5,
-            "betas": (0.9, 0.95),
+            "optimizer": "CAdamW",
+            "learning_rate": 5e-5,       # 从 1e-4 下调到 5e-5，更稳定
+            "weight_decay": 1e-5,        # 标准稳定值
+            "betas": (0.9, 0.999),       # 官方标准
             "batch_size": dataloader.batch_size,
         }
         if config is not None:
@@ -51,12 +54,14 @@ class NanoTrainer:
                 "vocab_size": config.vocab_size,
             })
 
-        self.optimizer = torch.optim.AdamW(
+        self.optimizer = CAdamW(
             self.model.parameters(),
             lr=self.train_config["learning_rate"],
             weight_decay=self.train_config["weight_decay"],
             betas=self.train_config["betas"],
         )
+        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=10)
+        
         self.loss_fn = nn.CrossEntropyLoss()
         self.global_step = 0
 
@@ -110,9 +115,13 @@ class NanoTrainer:
         return checkpoint["epoch"], checkpoint["batch_idx"], checkpoint.get("loss")
 
     def train_step(self, inputs, targets):
+        # 1. 必加：训练模式（开启Dropout/BatchNorm）
+        self.model.train()
+        
         inputs, targets = inputs.to(self.device), targets.to(self.device)
         outputs = self.model(inputs)
 
+        # 2. 必加：梯度清零（位置修正！）
         self.optimizer.zero_grad()
 
         # 展平
@@ -122,16 +131,20 @@ class NanoTrainer:
         # 损失
         loss = self.loss_fn(logits, labels)
 
+        # 反向传播 + 梯度裁剪
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        
         self.optimizer.step()
 
+        # 计算准确率
         preds = torch.argmax(logits, dim=-1)
         mask = labels != -100
         correct = (preds[mask] == labels[mask]).sum().item()
         total = mask.sum().item()
         acc = correct / total if total > 0 else 0.0
 
-        # 记录训练指标到 SwanLab
+        # 记录
         swanlab.log(
             {
                 "train/loss": loss.item(),
@@ -145,12 +158,6 @@ class NanoTrainer:
         return loss.item(), acc
 
     def train(self, epochs, resume_from="checkpoints/nano_llm_last.pth"):
-        """训练模型
-
-        Args:
-            epochs: 总训练轮数
-            resume_from: checkpoint 路径，文件不存在则从头训练
-        """
         start_epoch = 0
         start_batch = -1
 
@@ -173,7 +180,6 @@ class NanoTrainer:
             epoch_total_loss = 0
             num_batches = 0
             for batch_idx, batch in enumerate(self.dataloader):
-                # 跳过已训练的 batch
                 if epoch == start_epoch and batch_idx <= start_batch:
                     continue
 
@@ -193,10 +199,12 @@ class NanoTrainer:
                     print("saving model checkpoint...")
                     self.save_model(epoch, batch_idx, loss=loss)
 
+            # 3. 必加：更新学习率调度器
+            self.scheduler.step()
+            
             if num_batches > 0:
                 avg_loss = epoch_total_loss / num_batches
                 print(f"Epoch {epoch + 1}/{epochs}, Loss: {avg_loss:.4f}")
-                # 记录 epoch 级别指标
                 swanlab.log(
                     {
                         "epoch/avg_loss": avg_loss,
@@ -205,5 +213,4 @@ class NanoTrainer:
                     step=self.global_step,
                 )
 
-        # 训练结束，关闭 SwanLab
         swanlab.finish()
