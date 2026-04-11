@@ -65,6 +65,7 @@ class NanoTrainer:
             project=swanlab_project,
             experiment_name=swanlab_experiment_name,
             config=self.train_config,
+            mode="local"
         )
 
         print(f"Using device: {self.device}")
