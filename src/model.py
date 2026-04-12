@@ -18,12 +18,10 @@ class NanoAttention(nn.Module):
         super().__init__()
         self.attention_dim = config.attention_dim
         self.Q = nn.Linear(config.attention_dim, config.attention_dim,bias=False)
-        self.K = self.Q 
-        self.V = nn.Linear(config.attention_dim, config.attention_dim,bias=False)
 
     def forward(self, x):
         # [N,D] @ [D,D] -> [N,D]
-        Q = self.Q(x)
+        Q = x
         K = Q
         V = x
 
@@ -88,6 +86,25 @@ class NanoFeedForward(nn.Module):
         return self.fnn(x)
 
 
+class ResidualLinearMerge(nn.Module):
+    """线性映射层：将 [B, N, D] 映射为 [B, 1, D]
+    递归残差连接： output = self.linear0(output) + self.linear1(x[:, i:i+1, :])
+    """
+    def __init__(self, dim):
+        super().__init__()
+        self.linear0 = nn.Linear(dim, dim, bias=False)
+        self.linear1 = nn.Linear(dim, dim, bias=False)
+
+    def forward(self, x):
+        # x: [B, N, D]
+        B, N, _ = x.shape
+        output = torch.zeros(x.shape[0], 1, x.shape[2], device=x.device, dtype=x.dtype)  # [B, 1, D]
+        for i in range(N):
+            # output: [B, 1, D], x[:, i:i+1, :]: [B, 1, D]
+            output = self.linear0(output) + self.linear1(x[:, i:i+1, :])
+        return output
+
+
 class NanoTransformerBlock(nn.Module):
     def __init__(self, config: NanoConfig):
         super().__init__()
@@ -95,11 +112,20 @@ class NanoTransformerBlock(nn.Module):
         self.attention = NanoAttention(config)
         self.feed_forward_rms = nn.RMSNorm(config.attention_dim)
         self.feed_forward = NanoFeedForward(config)
+        self.merge = ResidualLinearMerge(config.attention_dim)
 
     def forward(self, x):
-        x = self.attention(self.attention_rms(x)) + x
-        x = self.feed_forward(self.feed_forward_rms(x)) + x
-        return x
+        # x: [B, N, D]
+        x_next = self.attention(self.attention_rms(x))
+        x_next = self.feed_forward(self.attention_rms(x_next))
+
+        # 将 x_next 的 [B, N, D] 映射为 [B, 1, D]
+        x_next_merged = self.merge(x_next)
+
+        # 移除首位 [B, 1, D]，在序列结尾拼接 [B, 1, D]
+        output = torch.cat([x[:, 1:, :], x_next_merged], dim=-2)
+
+        return output
 
 
 class NanoEmbending(nn.Module):
@@ -129,8 +155,10 @@ class NanoLLM(nn.Module):
     def __init__(self, config: NanoConfig):
         super().__init__()
         self.embending = NanoEmbending(config)
+        
+        block = NanoTransformerBlock(config)
         self.layers = nn.ModuleList(
-            [NanoTransformerBlock(config) for _ in range(config.n_layers)]
+            [ block for _ in range(1)]
         )
         self.output = NanoOutput(config)
 
