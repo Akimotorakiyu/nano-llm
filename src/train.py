@@ -25,18 +25,23 @@ class Train:
 
     def train(self, dataloader: NanoDataLoader, epoch: int):
         self.model.train()
-        total_loss = 0.0
         num_batches = 0
 
         for e in range(epoch):
+            epoch_loss = 0.0
+            epoch_min_loss = 100.0
+            epoch_max_loss = 0.0
+            epoch_std = 0.0
             for batch in dataloader:
                 x, y = batch
                 loss = self.train_step(x, y)
-                total_loss += loss.item()
+                epoch_loss += loss.item()
+                epoch_min_loss = min(epoch_min_loss, loss.item())
+                epoch_max_loss = max(epoch_max_loss, loss.item())
                 num_batches += 1
-                print(f"epoch {e + 1}/{epoch} - loss: {loss}")
 
-        avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
+            avg_loss = epoch_loss / len(dataloader.dataset) if len(dataloader.dataset) > 0 else 0.0
+            print(f"epoch {e + 1}/{epoch} - min:{epoch_min_loss} avg loss: {avg_loss} max:{epoch_max_loss}")
 
         checkpoint = {
             "model_state_dict": self.model.state_dict(),

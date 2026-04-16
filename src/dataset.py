@@ -1,4 +1,5 @@
 import torch
+from typing import List
 
 startTokenId = 2
 endTokenId = 4
@@ -9,7 +10,7 @@ endToken = torch.tensor([endTokenId])
 
 class NanoDataSet(torch.utils.data.Dataset):
     def genSamples(self, text: str):
-        samples:list = []
+        samples: List[str] = []
         for i in range(1, len(text)):
             x = torch.cat([startToken, torch.tensor([ord(c)
                           for c in text[:i]])])
@@ -24,8 +25,12 @@ class NanoDataSet(torch.utils.data.Dataset):
 
     def __init__(self):
         super().__init__()
-        self.samples=[]
-        raw_samples = ["hello world!","I'm a bot!", "Good night!"]
+        self.samples: List[str] = []
+        raw_samples = [
+            "hello world!",
+            "I'm a bot!",
+            "Good night!",
+        ]
         for sample in raw_samples:
             samples = self.genSamples(sample)
             for s in samples:
