@@ -96,7 +96,7 @@ class NanoLLM(torch.nn.Module):
         )
 
         self.nanoTransformerBlock = torch.nn.ModuleList(
-            [NanoTransformerBlock(config) for x in range(8)]
+            [NanoTransformerBlock(config) for x in range(1)]
         )
         self.output = torch.nn.Linear(
             self.config.hidden_dim, self.config.vocab_size)
