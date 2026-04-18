@@ -11,7 +11,7 @@ def main():
     llm = NanoLLM(config)
     train = Train(llm)
 
-    train.train(dataLoader,48)
+    train.train(dataLoader,64)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,11 @@ class NanoDataSet(torch.utils.data.Dataset):
             "hello world!",
             "I'm a bot!",
             "Good night!",
+            "Pandas are fragile (newborns weigh just 100g!) but remain one of conservations biggest success stories.",
+            # 100 以内的加法
+            # *[f"{i}+{j}={i+j}" for i in range(1, 10) for j in range(1, 10)],
+            # 99 乘法表
+            # *[f"{i}×{j}={i*j}" for i in range(1, 10) for j in range(1, 10)],
         ]
         for sample in raw_samples:
             samples = self.genSamples(sample)

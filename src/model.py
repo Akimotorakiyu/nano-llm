@@ -1,3 +1,4 @@
+import math
 import torch
 from torch.nn.functional import silu
 from dataclasses import dataclass
@@ -46,7 +47,7 @@ class NanoSelfAttention(torch.nn.Module):
         return output
 
 
-class NanoFeedForward(torch.nn.Module):
+class SwiGLU(torch.nn.Module):
     def __init__(self, config: NanoLLMConfig, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -65,6 +66,18 @@ class NanoFeedForward(torch.nn.Module):
     def forward(self, x: torch.Tensor):
         """SwiGLU: swish(x @ w1) * (x @ w3) @ w2"""
         return self.w2(silu(self.w1(x)) * (self.w3(x)))
+
+
+class NanoFeedForward(torch.nn.Module):
+    def __init__(self, config: NanoLLMConfig, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.config = config
+
+        self.swiGLU = SwiGLU(config)
+
+    def forward(self, x: torch.Tensor):
+        return self.swiGLU(x)
 
 
 class NanoTransformerBlock(torch.nn.Module):
@@ -95,9 +108,8 @@ class NanoLLM(torch.nn.Module):
             self.config.vocab_size, self.config.hidden_dim
         )
 
-        self.nanoTransformerBlock = torch.nn.ModuleList(
-            [NanoTransformerBlock(config) for x in range(1)]
-        )
+        self.nanoTransformerBlock = NanoTransformerBlock(config)
+
         self.output = torch.nn.Linear(
             self.config.hidden_dim, self.config.vocab_size)
 
@@ -105,8 +117,10 @@ class NanoLLM(torch.nn.Module):
         y = x
         y = self.embedding(y)
 
-        for block in self.nanoTransformerBlock:
-            y = block(y)
+        loop = round(math.log(x.shape[1]) * 8) + 1
+
+        for _ in range(loop):
+            y = self.nanoTransformerBlock(y)
 
         y = self.output(y)
         return y
