@@ -54,8 +54,8 @@ class SwiGLU(torch.nn.Module):
         super().__init__(*args, **kwargs)
 
         self.config = config
-        # 8/3 倍升维
-        self.intermediate_dim = self.config.hidden_dim * 8 // 3
+        # 4 倍升维
+        self.intermediate_dim = self.config.hidden_dim * 4
 
         # 升维投影
         self.w1 = torch.nn.Linear(
@@ -121,7 +121,7 @@ class NanoLLM(torch.nn.Module):
         self.output = torch.nn.Linear(
             self.config.hidden_dim, self.config.vocab_size)
 
-        self.init_mem_state = torch.nn.Parameter(torch.ones(self.config.mem_len, self.config.hidden_dim))
+        self.init_mem_state = torch.nn.Parameter(torch.zeros(self.config.mem_len, self.config.hidden_dim),False)
 
     def forward(self, x: torch.Tensor, mem_state: torch.Tensor = None) -> tuple[torch.Tensor, torch.Tensor]:
         # x: (batch_size, seq_len) - 当前输入token
