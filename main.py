@@ -6,12 +6,12 @@ from src.dataloader import NanoDataLoader
 
 def main():
     dataset = NanoDataSet()
-    dataLoader = NanoDataLoader(dataset)
+    dataLoader = NanoDataLoader(dataset, batch_size=1, shuffle=True)
     config = NanoLLMConfig()
     llm = NanoLLM(config)
     train = Train(llm)
 
-    train.train(dataLoader,64)
+    train.train(dataLoader, 1024)
 
 
 if __name__ == "__main__":
